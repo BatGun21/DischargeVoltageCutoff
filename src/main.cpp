@@ -53,7 +53,7 @@ void loop() {
 }
 
 float analogToVoltage(int analogValue) {
-  return analogValue * (1.1 / 1023.0) * (3.0 / 0.94) - (analogValue * (1.1 / 1023.0) * 0.03);
+  return analogValue * (1.1 / 1023.0) * (3.0 / 0.94) - (analogValue * (1.1 / 1023.0) * 0.03); // Callibearation using Calculation and Observation
 }
 
 float calculateMovingAverage() {
