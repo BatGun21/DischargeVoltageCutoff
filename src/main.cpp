@@ -3,35 +3,73 @@
 const int analogPin = A0;
 const int relayPin = 7;
 
-float voltageThresholdHigh = 2.35;
-float voltageThresholdLow = 2.28;  
-bool relayState = HIGH;  // Initial state (assumes relay is initially on)
+const int bufferSize = 5;
+float voltageBuffer[bufferSize];
+
+float voltageThresholdHigh = 2.20;
+float voltageThresholdLow = 2.00;
+bool relayState = LOW;
+
+float analogToVoltage(int analogValue);
+float calculateMovingAverage();
+float removeOutliers(float value);
 
 void setup() {
   Serial.begin(9600);
   pinMode(relayPin, OUTPUT);
   analogReference(INTERNAL);
+
+  for (int i = 0; i < bufferSize; i++) {
+    voltageBuffer[i] = analogToVoltage(analogRead(analogPin));
+  }
 }
 
 void loop() {
-  int sensorValue = analogRead(analogPin);
-  float voltage = sensorValue * (1.1 / 1023.0);
-  voltage = voltage * (3.0/ 0.94); // Correction for voltage divider
-  voltage -= voltage * 0.04; // Correction using observation
+  for (int i = bufferSize - 1; i > 0; i--) {
+    voltageBuffer[i] = voltageBuffer[i - 1];
+  }
 
-  if (voltage <= voltageThresholdLow && relayState == HIGH) {
+  voltageBuffer[0] = analogToVoltage(analogRead(analogPin));
+
+  float movingAverage = calculateMovingAverage();
+  float filteredVoltage = removeOutliers(movingAverage);
+
+  if (filteredVoltage <= voltageThresholdLow && relayState == HIGH) {
     digitalWrite(relayPin, LOW);
-    Serial.println("Relay OFF");
     relayState = LOW;  
-  } else if (voltage >= voltageThresholdHigh && relayState == LOW) {
+  } else if (filteredVoltage >= voltageThresholdHigh && relayState == LOW) {
     digitalWrite(relayPin, HIGH);
-    Serial.println("Relay ON");
     relayState = HIGH;  
   }
 
   Serial.print("Voltage: ");
-  Serial.print(voltage, 2); // Print with 2 decimal places
+  Serial.print(filteredVoltage, 2);
   Serial.println(" V");
+  Serial.print("Relay State: ");
+  Serial.println(relayState);
+  
 
   delay(1000);
+}
+
+float analogToVoltage(int analogValue) {
+  return analogValue * (1.1 / 1023.0) * (3.0 / 0.94) - (analogValue * (1.1 / 1023.0) * 0.03);
+}
+
+float calculateMovingAverage() {
+  float sum = 0.0;
+  for (int i = 0; i < bufferSize; i++) {
+    sum += voltageBuffer[i];
+  }
+  return sum / bufferSize;
+}
+
+float removeOutliers(float value) {
+  const float outlierThreshold = 0.2;
+
+  if (abs(value - calculateMovingAverage()) > outlierThreshold) {
+    return calculateMovingAverage();
+  } else {
+    return value;
+  }
 }
